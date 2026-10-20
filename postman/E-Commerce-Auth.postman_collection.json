@@ -1,0 +1,96 @@
+{
+  "info": {
+    "_postman_id": "45103f75-33ae-4c39-ae7b-5bb8e081ac98",
+    "name": "E-Commerce Authentication API",
+    "description": "Local authentication API requests. First run Initialize CSRF. Postman’s cookie jar retains the CSRF cookie and the HttpOnly login cookie. Recovery OTP is read only from the local backend console when the local profile is enabled.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "csrfToken", "value": "" },
+    { "key": "identifier", "value": "rahul@example.com" },
+    { "key": "otp", "value": "" },
+    { "key": "recoveryToken", "value": "" },
+    { "key": "password", "value": "" },
+    { "key": "newPassword", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Initialize CSRF",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/csrf",
+        "description": "Run before any POST or PUT request. Copy the XSRF-TOKEN cookie value from Postman’s cookie manager into the csrfToken collection variable."
+      }
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Rahul Kumar\",\n  \"email\": \"rahul@example.com\",\n  \"mobileNumber\": \"+919876543210\",\n  \"phoneRegion\": \"IN\",\n  \"password\": \"{{password}}\",\n  \"confirmPassword\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/reg"
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{identifier}}\",\n  \"password\": \"{{password}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/login",
+        "description": "Postman should retain the HttpOnly access cookie in its cookie jar."
+      }
+    },
+    {
+      "name": "Get current user",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/me" }
+    },
+    {
+      "name": "Get protected home",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/home" }
+    },
+    {
+      "name": "Logout",
+      "request": { "method": "POST", "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }], "url": "{{baseUrl}}/logout" }
+    },
+    {
+      "name": "Forgot password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{identifier}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/forgot-password"
+      }
+    },
+    {
+      "name": "Verify OTP",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"{{identifier}}\",\n  \"otp\": \"{{otp}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/verify-otp",
+        "description": "After successful verification, copy data.recoveryToken from the response into the recoveryToken collection variable."
+      }
+    },
+    {
+      "name": "Reset password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"recoveryToken\": \"{{recoveryToken}}\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/reset-password"
+      }
+    },
+    {
+      "name": "Change password",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "X-XSRF-TOKEN", "value": "{{csrfToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/change-password"
+      }
+    }
+  ]
+}

@@ -67,6 +67,9 @@ public class PasswordRecoveryService {
         String lookup = identifier;
         if (identifier.startsWith("+") || identifier.matches("^[0-9]+$")) {
             lookup = phoneValidationService.formatToE164(identifier, null);
+        } else {
+            identifier = identifier.toLowerCase(java.util.Locale.ROOT);
+            lookup = identifier;
         }
 
         userRepository.findByEmailOrMobileE164(identifier, lookup).ifPresent(user -> {
@@ -104,6 +107,9 @@ public class PasswordRecoveryService {
         String lookup = identifier;
         if (identifier.startsWith("+") || identifier.matches("^[0-9]+$")) {
             lookup = phoneValidationService.formatToE164(identifier, null);
+        } else {
+            identifier = identifier.toLowerCase(java.util.Locale.ROOT);
+            lookup = identifier;
         }
 
         User user = userRepository.findByEmailOrMobileE164(identifier, lookup)

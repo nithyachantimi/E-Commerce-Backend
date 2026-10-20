@@ -4,6 +4,7 @@ import com.ecommerce.auth.dto.*;
 import com.ecommerce.auth.entity.User;
 import com.ecommerce.auth.entity.UserSession;
 import com.ecommerce.auth.exception.BadRequestException;
+import com.ecommerce.auth.exception.ConflictException;
 import com.ecommerce.auth.repository.UserRepository;
 import com.ecommerce.auth.repository.UserSessionRepository;
 import com.ecommerce.auth.security.JwtTokenProvider;
@@ -68,7 +69,7 @@ public class AuthService {
 
         // 2. Email uniqueness
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BadRequestException("An account with this email address already exists.");
+            throw new ConflictException("An account with this email address already exists.");
         }
 
         // 3. International phone validation & E.164 normalization
@@ -80,7 +81,7 @@ public class AuthService {
 
         // 4. Mobile uniqueness
         if (userRepository.existsByMobileE164(mobileE164)) {
-            throw new BadRequestException("An account with this mobile number already exists.");
+            throw new ConflictException("An account with this mobile number already exists.");
         }
 
         // 5. Create user with BCrypt hashed password
@@ -107,6 +108,9 @@ public class AuthService {
         String lookupIdentifier = identifier;
         if (identifier.startsWith("+") || identifier.matches("^[0-9]+$")) {
             lookupIdentifier = phoneValidationService.formatToE164(identifier, null);
+        } else {
+            identifier = identifier.toLowerCase(java.util.Locale.ROOT);
+            lookupIdentifier = identifier;
         }
 
         User user = userRepository.findByEmailOrMobileE164(identifier, lookupIdentifier)

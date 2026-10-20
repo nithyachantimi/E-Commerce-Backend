@@ -24,7 +24,7 @@ spring:
 
   flyway:
     enabled: true
-    baseline-on-migrate: true
+    # Leave baseline-on-migrate disabled: unknown pre-existing schemas must not be silently marked as migrated.
     locations: classpath:db/migration
 
 # Custom Application Security & JWT Configuration

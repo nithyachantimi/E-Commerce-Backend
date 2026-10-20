@@ -1,36 +1,38 @@
-# E-Commerce-Backend
+# E-Commerce Authentication Backend
 
-## Local development
+Java/Spring Boot authentication API for the E-Commerce project. It uses MySQL, Flyway migrations, HttpOnly JWT cookies, server-side session revocation, CSRF protection, international phone validation, and local-only console OTP delivery.
 
-This is the Spring Boot authentication API. It uses MySQL and Flyway migrations. The application account is configured as `ecommerce_app`; do not use MySQL root for normal app access. The database and account must exist before startup. The application URL no longer asks MySQL to create the database automatically.
+## Prerequisites
 
-The backend requires Java 21 or newer and Maven. Maven 3.10.0 with JDK 25.0.4.1 was verified. The backend has started locally on port 8080; Flyway applied V1 successfully to `ecommerce_auth`.
+- Java 21 or newer
+- MySQL running locally, with an existing `ecommerce_auth` database and least-privilege `ecommerce_app` account
+- Review the database first. The startup migration creates tables; do not run it against a schema with unknown or existing data.
 
-In PowerShell, open a new terminal and set local environment values (use your own database password; do not commit it):
+The repository does not contain database credentials. The startup script securely prompts for `SPRING_DATASOURCE_PASSWORD` if it is not already set. No database or user is created automatically.
+
+## Start on Windows
+
+Open PowerShell and run:
 
 ```powershell
-$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3306/ecommerce_auth?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
+Set-Location "C:\Users\u\Downloads\E Commerce\E-Commerce-Backend"
 $env:SPRING_DATASOURCE_USERNAME = 'ecommerce_app'
-$env:SPRING_DATASOURCE_PASSWORD = '<your local ecommerce_app password>'
-$env:SPRING_PROFILES_ACTIVE = 'local'
-$secretBytes = New-Object byte[] 32
-[System.Security.Cryptography.RandomNumberGenerator]::Fill($secretBytes)
-$env:JWT_SECRET = [Convert]::ToBase64String($secretBytes)
-$env:CORS_ALLOWED_ORIGINS = 'http://localhost:5173'
-$env:APP_COOKIE_SECURE = 'false'
-$env:APP_COOKIE_SAME_SITE = 'Lax'
-mvn spring-boot:run
+.\start-backend.ps1
 ```
 
-Flyway applies the checked-in migration during startup. V1 has been applied to the confirmed empty `ecommerce_auth` schema. For local HTTPS deployments, set `APP_COOKIE_SECURE=true` and review the `SameSite` policy.
+You may set `SPRING_DATASOURCE_PASSWORD` in the current PowerShell session before starting. Otherwise the script prompts without echoing the password. If `JWT_SECRET` is unset, the script generates one for this run; set a stable base64-encoded 32-byte value in your local environment if JWT sessions should survive backend restarts. For local OTP recovery, the script selects the `local` Spring profile; the generated code is written only to the backend console. Do not use that profile in production.
 
-## API overview
+The app listens on `http://localhost:8080`. Swagger UI is at `http://localhost:8080/swagger-ui.html`.
 
-The fixed authentication routes are `POST /api/reg`, `POST /api/login`, `POST /api/logout`, `POST /api/forgot-password`, `POST /api/verify-otp`, `POST /api/reset-password`, `PUT /api/change-password`, `GET /api/me`, and `GET /api/home`. The login cookie is HttpOnly; raw access JWTs are not returned in the login response. The browser frontend is configured for `http://localhost:5173`.
+## API
 
-## Current limitations
+The required auth API paths are `POST /api/reg`, `POST /api/login`, `POST /api/logout`, `POST /api/forgot-password`, `POST /api/verify-otp`, `POST /api/reset-password`, `PUT /api/change-password`, `GET /api/me`, and `GET /api/home`. `GET /api/csrf` initializes the browser CSRF cookie; it is an additional setup endpoint. The frontend sends that cookie back in the `X-XSRF-TOKEN` header on unsafe requests.
 
-- For local recovery, start the backend with `SPRING_PROFILES_ACTIVE=local`; the 6-digit OTP is printed to the backend terminal with a local-only warning. The local profile must not be used in production. Without that profile, delivery is disabled until an email/SMS provider is configured.
-- Rate limits are in-memory and apply to one backend process; production deployments need a shared rate-limit store or gateway policy.
-- Frontend build and backend compile succeeded. Database migration and backend startup succeeded; registration/login/logout and protected-home behavior still need a manual browser walkthrough. Automated and Postman tests are deferred.
-- See [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) for the implementation inventory, schema, API details, and handover status.
+## Current limits and verification
+
+- Recovery delivery outside the `local` profile is disabled until an email/SMS provider is configured.
+- Rate limits are in-memory and apply to one backend process.
+- Build: `mvn -B -DskipTests package` succeeded on 2026-10-20. Automated tests were not run, per the user instruction.
+- Database startup/migration and browser API flows have not been verified in this environment. Do not assume the schema is empty or that V1 has been applied.
+- See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for the schema, architecture, routes, setup details, and verified status.
+- [API contract](docs/api.md), [database schema/ER diagram](docs/database-schema.md), [troubleshooting](docs/troubleshooting.md), [requirements traceability](docs/requirements-traceability.md), and [Postman collection](postman/E-Commerce-Auth.postman_collection.json) are included.

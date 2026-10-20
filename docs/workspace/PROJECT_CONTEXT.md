@@ -117,4 +117,24 @@ Do not start the backend until the target database and application account are c
 6. Implement only the features approved for the next phase.
 7. Do not add automated tests unless the user explicitly requests them.
 
+## Latest continuation update (2026-10-20)
+
+The user approved continuing implementation. The current checkout is `C:\Users\u\Downloads\E Commerce` (the earlier `C:\E-Commerce` path above is historical). Verify current files before relying on the dated inventory.
+
+- All seven frontend routes are present. `PhoneNumberInput.jsx` now uses `react-international-phone` 4.8.0 for full country metadata, flags, formatting, and a searchable country/calling-code picker; registration and recovery validate E.164 numbers with `libphonenumber-js/max` 1.13.15. The backend independently validates and normalizes using Google libphonenumber.
+- The current approved master prompt requires both light and dark themes. The older light-only visual note above is historical; the source currently supports both modes.
+- Cookie authentication remains in place. Spring Security now uses a CSRF cookie/header pair; `GET /api/csrf` initializes the token, and Axios obtains it before unsafe requests. CORS defaults to `http://localhost:5173` only. Browser/runtime verification remains outstanding.
+- Password reset authorization is held in a React `RecoveryContext` in memory, not in the URL or browser history. Registration duplicates return 409; login and recovery normalize email case; OTP format and frontend password checks match backend rules. Recovery copy no longer claims delivery succeeded when no provider is configured.
+- `start-backend.ps1` no longer supplies a hard-coded database password. It securely prompts when `SPRING_DATASOURCE_PASSWORD` is unset. JWT secret generation remains ephemeral unless the user supplies a stable local value.
+- Flyway baseline-on-migrate is no longer enabled by default, so an unknown non-empty schema is not silently marked as migrated. No database migration or other database operation was run during the 2026-10-20 continuation.
+- Added backend handover/API/schema/ER/troubleshooting/traceability docs and a Postman collection at `E-Commerce-Backend/postman/E-Commerce-Auth.postman_collection.json`. The collection contains no test scripts; initialize CSRF and copy the values into variables manually.
+- Verification on 2026-10-20: frontend `npm.cmd run build` succeeded with route-level splitting (417 kB initial bundle; phone chunk is separate). `npm.cmd run lint` completed with three React Fast Refresh warnings in context modules and no errors. Maven `-B -DskipTests package` succeeded and compiled 38 Java files before the final config-only CORS/Flyway edits. The Postman collection JSON parsed successfully. Automated tests were not created or run.
+- Current environment checks on 2026-10-20: `localhost:3306`, `:8080`, and `:5173` all refused TCP connections; Service Control Manager access was denied. MySQL service/database/schema state remains unknown. Git executable was unavailable, so current branch/worktree state could not be verified. Historical checks from 2026-10-19 above describe that earlier environment state and do not establish current listeners or schema state.
+
+### Remaining manual work
+
+1. Confirm the MySQL service and existing database/account state before any Flyway startup. The historical `ecommerce_local` account and current configuration name `ecommerce_app` may differ; inspect and resolve that mismatch locally.
+2. Start the backend only after credentials and schema state are confirmed; then manually verify CSRF, registration, login, protected home, logout, recovery, reset, and change-password flows.
+3. Inspect Git status and branches with Git available before committing or pushing. No remote GitHub operation was performed.
+
 

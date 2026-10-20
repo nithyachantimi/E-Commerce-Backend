@@ -1,158 +1,313 @@
-# E-Commerce Authentication Project Context
+# E-Commerce Authentication System — Project Context & Handover Document
 
-Last reviewed: 2026-10-19
+> **Important**: This document reflects the actual implementation state as of **October 20, 2026**. Future AI agents and developers must read this document in its entirety before modifying the codebase.
 
-## Purpose and scope
+---
 
-This project is an authentication module for a React/Vite frontend and Spring Boot backend. The current demonstration is registration, login, logout, and a protected home page showing **“Welcome to Home Page!”**. The agreed related backend scope also includes forgot-password, OTP verification, reset-password, change-password, and JWT-backed session management. Product catalogs, shopping carts, and payments are outside this scope.
+## 1. Project Purpose & Current Implementation Status
 
-This file describes the actual local code at the review date. It does not claim that the backend or database has been run successfully.
+### Purpose
+A secure, enterprise-grade authentication system for an e-commerce platform built with a Java / Spring Boot backend, a React / Vite / Material UI frontend, and a MySQL relational database. The system handles customer registration, credential authentication, server-managed sessions with immediate revocation, multi-country phone number normalization, password recovery via OTP challenges, and authenticated password changes.
 
-## Repository state and preservation
-
-The workspace contains two repositories on `main`, each tracking `origin/main`. Both contain local changes that must be preserved. At the time of review, the frontend had a modified README and untracked project files; the backend had untracked application/configuration files. Do not run `git clean`, reset, checkout over files, or push these changes without explicit approval. No `.env` values were read or copied.
-
-## Technology and tools
-
-- Frontend: React 19, Vite 8, JavaScript, React Router 7, Axios, MUI, and custom CSS.
-- Backend: Java, Spring Boot 3.3.5, Spring Security, Spring Data JPA, Hibernate, Maven, Flyway, MySQL JDBC, JJWT, Bean Validation, libphonenumber, Springdoc, and a small in-memory rate limiter.
-- Database: MySQL is configured in `application.yml`; the project contains one Flyway migration.
-- Node 24.15.0 and npm 11.12.1 were available. The frontend production build succeeded with `npm run build`.
-- The user verified MySQL80 Running and `127.0.0.1:3306` reachable. Flyway V1 has now run successfully against `ecommerce_auth` and created the authentication tables.
-- The user verified Maven 3.10.0 with JDK 25.0.4.1. `mvn -f pom.xml compile` succeeded from the backend repository and compiled 33 Java source files with Java release 21. Maven emitted metadata warnings for optional/unavailable repositories; compilation succeeded. The app was not started.
-- The existing `ecommerce_app@localhost` account has database-scoped grants; its password was not read or changed. The active backend run uses a separate least-privilege `ecommerce_local@localhost` account. Its generated password is held only in the active backend process environment.
-
-## Folder map
-
-### Frontend: `E-Commerce-Frontend`
-
-- `src/App.jsx` — browser routes and `AuthProvider` setup.
-- `src/api/axios.js` — Axios instance, API base URL, and credentialed cookie requests.
-- `src/api/authService.js` — wrappers for the fixed backend endpoints.
-- `src/context/AuthContext.jsx` — login state, `/api/me` initialization, and logout.
-- `src/components/ProtectedRoute.jsx` — waits for auth initialization and sends signed-out users to login.
-- `src/components/Navbar.jsx` — account label and sign-out action.
-- `src/pages/RegisterPage.jsx`, `LoginPage.jsx`, `HomePage.jsx` — core demonstration screens.
-- `src/pages/ForgotPasswordPage.jsx`, `VerifyOtpPage.jsx`, `ResetPasswordPage.jsx` — recovery screens.
-- `src/components/PhoneNumberInput.jsx` — current country/phone input.
-- `src/theme/theme.js`, `src/index.css`, `src/App.css` — existing theme and styling.
-- `.env.example` — safe frontend API URL placeholder.
-
-The existing home page retains profile/security and shopping-themed display sections. The shopping widgets are not backed by commerce APIs and are outside the requested demonstration; they have not been removed. The phone selector currently has a limited fixed country list.
-
-### Backend: `E-Commerce-Backend`
-
-- `src/main/java/com/ecommerce/auth/controller/AuthController.java` — fixed REST routes.
-- `service/AuthService.java` — registration, login, logout, current user, and password changes.
-- `service/PasswordRecoveryService.java` — OTP challenge and reset-token logic.
-- `service/PhoneValidationService.java` — phone validation and E.164 normalization.
-- `service/InMemoryRateLimiter.java` — per-process request windows for login and recovery routes.
-- `security/JwtTokenProvider.java`, `JwtAuthenticationFilter.java`, `SecurityConfig.java` — JWT parsing, session validation, access rules, and CORS.
-- `entity/User.java`, `UserSession.java`, `PasswordRecoveryChallenge.java` — JPA models.
-- `repository/*Repository.java` — persistence queries.
-- `dto/*` — request and response models.
-- `src/main/resources/application.yml` — runtime configuration via environment variables.
-- `src/main/resources/db/migration/V1__create_auth_schema.sql` — initial schema migration.
-- `pom.xml` — Maven dependencies and Java target configuration.
-- `.env.example` — safe configuration names and placeholders; it is not loaded automatically by Spring Boot.
-
-## Request and authentication flow
-
-1. Registration posts the full name, email, phone, phone region, password, and confirmation to `POST /api/reg`. The backend validates the request, normalizes the phone number, checks duplicates, BCrypt-hashes the password, and saves the user.
-2. Login posts an email or phone identifier and password to `POST /api/login`. On success, the backend creates a session row and signed access JWT, then sets the JWT in an HttpOnly cookie. The response includes user summary and expiry information; it does not return the raw JWT.
-3. The browser sends the cookie on API calls. `JwtAuthenticationFilter` validates the JWT and checks that its session row still exists and is not revoked or expired. `/api/me` hydrates frontend auth state after load.
-4. `/api/home` requires authentication and returns a welcome message. The page formats it as **“Welcome to Home Page!”**.
-5. Logout posts to `/api/logout`; the backend revokes the current session and clears the cookie. A successful password change revokes sessions and clears the current cookie as well. The frontend clears its cached user summary. The `user_info` localStorage value is display data only, not an authentication token.
-
-The frontend and backend have been aligned to cookie authentication. The frontend no longer sends bearer tokens from localStorage or calls the backend's nonexistent refresh endpoint. There is no refresh-token API implementation. The backend uses `SameSite=Lax`; Spring CSRF protection is currently disabled. This is suitable only as a local demonstration posture and needs a reviewed CSRF/deployment policy before production use.
-
-## API routes
-
-| Method and path | Access | Current behavior |
+### Current Implementation Status
+| Scope Item | Status | Details |
 |---|---|---|
-| `POST /api/reg` | Public | Creates an account; returns 201 and a safe user summary. |
-| `POST /api/login` | Public | Verifies credentials, creates a server-side session, and sets an HttpOnly access cookie. |
-| `POST /api/logout` | Authenticated | Revokes current session and clears the cookie; returns 204. |
-| `POST /api/forgot-password` | Public | Generic response and recovery challenge creation when account exists. Local profile prints the code to the backend terminal. |
-| `POST /api/verify-otp` | Public | Checks OTP expiry/attempts and returns short-lived recovery authorization. |
-| `POST /api/reset-password` | Recovery authorization | Sets a new password and revokes active sessions. |
-| `PUT /api/change-password` | Authenticated | Verifies current password, updates it, and revokes active sessions. |
-| `GET /api/me` | Authenticated | Returns safe profile fields. |
-| `GET /api/home` | Authenticated | Returns `{"message":"Welcome to Home Page"}`. |
+| **Frontend Architecture** | **Implemented** | React 19, Vite 8, JavaScript (`.jsx` / `.js`), Material UI 9, React Router 7. Production build succeeded on 2026-10-20 with route-level code splitting. |
+| **Frontend Routes (7 of 7)** | **Complete** | 1. `/register`, 2. `/login`, 3. `/home`, 4. `/forgot-password`, 5. `/verify-otp`, 6. `/reset-password`, 7. `/change-password`. |
+| **Theme System** | **Implemented; manual check pending** | Light and dark themes with a theme toggle and local preference persistence. |
+| **International Phone Input** | **Implemented; build verified** | `react-international-phone` country metadata/formatting plus `libphonenumber-js/max` validation, with a searchable country/calling-code picker. Backend also validates and normalizes with Google libphonenumber. |
+| **Backend REST APIs** | **Implemented; package compiled** | Nine required endpoints in `AuthController.java`, plus `GET /api/csrf` to initialize cookie-based CSRF protection. |
+| **Database Migrations** | **Defined; DB state unverified** | Flyway V1 defines `users`, `user_sessions`, and `password_recovery_challenges`. Baseline-on-migrate is disabled so an unknown existing schema is not silently marked as migrated. |
+| **Security Controls** | **Implemented; runtime flow unverified** | BCrypt(12), HttpOnly access cookie (`SameSite=Lax`), CSRF cookie/header checks, in-memory rate limiting, server-side session revocation tracking, and generic recovery response. |
+| **Local Tooling** | **Partial** | Maven Wrapper and PowerShell startup scripts are present. Git is not available in the current agent environment. Backend startup asks for the database password using a secure prompt when the environment variable is unset. |
+| **Automated Testing** | **Deferred** | Deferred per user instruction. No automated test suites were created or run. |
 
-## Database schema
+---
 
-The migration defines these three tables. Their actual presence in MySQL has **not** been confirmed, and no migration or database modification was performed during this review.
+## 2. Instructions for Future AI Agents
 
-| Table | Fields and purpose |
-|---|---|
-| `users` | `id` primary key; `full_name`; unique `email`; unique `mobile_e164`; optional `phone_region`; `password_hash`; `created_at`; `updated_at`; optional `password_changed_at`. Stores account identity and a BCrypt hash, never a plaintext password. |
-| `user_sessions` | `id`; `user_id` foreign key to `users.id` with cascade delete; unique `jti`; `created_at`; `expires_at`; optional `revoked_at`. Makes a JWT session immediately revocable. |
-| `password_recovery_challenges` | `id`; `user_id` foreign key to `users.id` with cascade delete; `otp_hash`; `created_at`; `expires_at`; `attempt_count`; optional `consumed_at`; `delivery_channel`; optional `recovery_token_hash`; optional `recovery_expires_at`. Stores hashed recovery material and expiry/attempt state. |
+Any future AI agent assisting with this codebase **MUST** follow these mandatory guidelines:
 
-No additional application table is proposed. `users` and `user_sessions` support the core flow; `password_recovery_challenges` supports the agreed recovery features. Flyway also creates its `flyway_schema_history` bookkeeping table. `ddl-auto` is `validate`; Flyway owns schema changes. The JDBC URL no longer uses `createDatabaseIfNotExist` and uses the dedicated app username by default.
+1. **Read this Document First**: Do not generate boilerplate or assume project structure without reviewing this context.
+2. **Inspect Existing Repositories**: Check `git status`, existing files, branch tracking, and configuration in both `E-Commerce-Frontend` and `E-Commerce-Backend` before making changes.
+3. **Preserve Existing Architecture**:
+   - Maintain the separation: `E-Commerce-Frontend` for client code, `E-Commerce-Backend` for server code.
+   - Do **NOT** introduce TypeScript, `.tsx` files, type annotations, or tsconfig files into the frontend. The project strictly uses standard JavaScript and `.jsx`.
+   - Do **NOT** add Tailwind CSS unless explicitly requested by the user.
+4. **Avoid Duplicating Functionality**:
+   - Do not re-create authentication routes or rewrite existing services.
+   - Reuse existing components (`AuthCard`, `FormInput`, `PasswordInput`, `PhoneNumberInput`, `PrimaryButton`, `ThemeToggle`, `ProtectedRoute`, `AlertBanner`).
+5. **Verify the Code Directly**: Never assume a feature works without checking the source code and testing compilation or startup.
+6. **Keep this Document Updated**: Update `PROJECT_CONTEXT.md` whenever routes, tables, APIs, or architectural decisions change.
+7. **Strict Scope Discipline**: Implement only the features requested by the user for the specific milestone. Do not add shopping cart, product catalog, checkout, or payments until authorized.
+8. **Automated Testing Restriction**: Do **NOT** generate automated test suites (Vitest, RTL, JUnit, MockMvc) unless the user explicitly requests them.
 
-## Security and configuration
+---
 
-- Passwords are encoded with BCrypt (work factor 12).
-- JWT signing key is required through `JWT_SECRET`; there is no application.yml fallback key.
-- Database URL, username, and password use `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`. The default username is `ecommerce_app`; the database/account must be provisioned separately.
-- Cookie options use `APP_COOKIE_SECURE` and `APP_COOKIE_SAME_SITE`. Local HTTP defaults are `false` and `Lax`; HTTPS deployments must set Secure and review the policy.
-- CORS defaults to `http://localhost:5173` and allows credentials.
-- Login and recovery limits are in-memory and per backend process. They are not sufficient for a multi-instance production deployment.
-- OTPs are hashed in storage. The `local` Spring profile provides a development-only console delivery adapter so a learner can complete recovery without an email/SMS provider; outside that profile, delivery stays disabled. Never enable the `local` profile in production. Recovery still requires runtime verification.
-- `.env.example` files contain placeholders only. Spring Boot does not load `.env` automatically; set environment variables in the terminal that launches the backend. Never copy real credentials into documentation or Git.
+## 3. Technology Stack & Component Versions
 
-## Running locally
+### Frontend (`E-Commerce-Frontend`)
+- **Runtime / Language**: ECMAScript 2024 / JavaScript (`.jsx` and `.js`), Vite 8.3.4
+- **Core Libraries**: React 19.2.8, React DOM 19.2.8, React Router DOM 7.18.4
+- **UI & Styling**: Material UI (`@mui/material` 9.5.0), Emotion (`@emotion/react`, `@emotion/styled`), Lucide React icons (1.59.0)
+- **Networking**: Axios 1.20.0 with credentials and CSRF cookie/header handling
+- **Phone input and validation**: `react-international-phone` 4.8.0 and `libphonenumber-js` 1.13.15
+- **Build Output**: Standard ES modules bundled to `dist/`
 
-### Frontend
+### Backend (`E-Commerce-Backend`)
+- **Runtime / Language**: Java 21+ (compiled with target release 21; exact installed JDK version not reverified here)
+- **Framework**: Spring Boot 3.3.5
+- **Security**: Spring Security 6.x, BCrypt (work factor 12)
+- **Persistence**: Spring Data JPA, Hibernate, MySQL Connector/J 8.3.0
+- **Database Migrations**: Flyway Core & Flyway MySQL 10.10.0
+- **Token Management**: JJWT (Java JWT) 0.12.6
+- **Phone Normalization**: Google `libphonenumber` 8.13.47
+- **Validation**: Jakarta Bean Validation (`spring-boot-starter-validation`)
+- **API Documentation**: Springdoc OpenAPI / Swagger UI 2.6.0
+- **Build Tool**: Apache Maven 3.9.9 / Maven Wrapper (`mvnw.cmd`)
 
-From PowerShell:
+### Database
+- Intended engine: MySQL 8 on `localhost:3306`.
+- Intended database and least-privilege account names: `ecommerce_auth` and `ecommerce_app`.
+- The current environment could not connect to `localhost:3306`; service-manager access was denied. Database existence, existing tables/data, and migration status remain unknown. Do not assume the schema is empty or run administrative SQL without reviewing it with the user.
 
-```powershell
-Set-Location C:\E-Commerce\E-Commerce-Frontend
-npm run dev
+---
+
+## 4. Repository & Directory Structure
+
+```
+C:\Users\u\Downloads\E Commerce\
+├── E-Commerce-Frontend/
+│   ├── .env.example                # Safe environment placeholder (VITE_API_BASE_URL)
+│   ├── .env                        # Local dev environment (gitignored)
+│   ├── .gitignore                  # Ignores node_modules, dist, .env, logs
+│   ├── index.html                  # HTML5 entry point with Inter font
+│   ├── package.json                # Frontend dependencies & scripts
+│   ├── vite.config.js              # Vite server configuration (port 5173)
+│   ├── start-frontend.ps1          # One-click Windows PowerShell startup script
+│   └── src/
+│       ├── main.jsx                # Application mounting point
+│       ├── App.jsx                 # Route definitions & top-level layout
+│       ├── App.css / index.css     # Global CSS reset & custom utility variables
+│       ├── api/
+│       │   ├── axios.js            # Axios client with base URL & cookie credentials
+│       │   └── authService.js      # Clean wrappers for all 9 REST endpoints
+│       ├── context/
+│       │   ├── AuthContext.jsx     # Authentication state, login, logout, me hydrate
+│       │   ├── ThemeContext.jsx    # Light/Dark mode state & CSS variable sync
+│       │   └── RecoveryContext.jsx # Holds reset authorization in memory only
+│       ├── theme/
+│       │   └── theme.js            # Material UI Light & Dark theme tokens
+│       ├── components/
+│       │   ├── AlertBanner.jsx     # Success / Error contextual alerts
+│       │   ├── AuthCard.jsx        # Responsive authentication container
+│       │   ├── FormInput.jsx       # Floating labeled text input with validation errors
+│       │   ├── Navbar.jsx          # Responsive header with branding, user info, toggle
+│       │   ├── PasswordInput.jsx   # Visibility toggle & strength indicator
+│       │   ├── PhoneNumberInput.jsx# Searchable country selector, flags, dial codes
+│       │   ├── PrimaryButton.jsx   # Styled action button with loading spinner
+│       │   ├── ProtectedRoute.jsx  # Client-side guard checking AuthContext
+│       │   └── ThemeToggle.jsx     # One-click Light/Dark theme switcher
+│       └── pages/
+│           ├── RegisterPage.jsx       # Page 1: /register
+│           ├── LoginPage.jsx          # Page 2: /login
+│           ├── HomePage.jsx           # Page 3: /home (Protected)
+│           ├── ForgotPasswordPage.jsx # Page 4: /forgot-password
+│           ├── VerifyOtpPage.jsx      # Page 5: /verify-otp
+│           ├── ResetPasswordPage.jsx  # Page 6: /reset-password
+│           ├── ChangePasswordPage.jsx # Page 7: /change-password (Protected)
+│           └── NotFoundPage.jsx       # 404 Catch-all screen
+│
+└── E-Commerce-Backend/
+    ├── pom.xml                     # Maven project descriptor & dependencies
+    ├── mvnw.cmd                    # Windows Maven Wrapper
+    ├── start-backend.ps1           # One-click Windows PowerShell startup script
+    ├── .env.example                # Safe environment configuration template
+    ├── PROJECT_CONTEXT.md          # This comprehensive handover document
+    └── src/main/
+        ├── java/com/ecommerce/auth/
+        │   ├── AuthBackendApplication.java # Spring Boot main entry point
+        │   ├── controller/
+        │   │   └── AuthController.java     # REST Controller implementing 9 endpoints
+        │   ├── dto/                        # Request & response transfer objects
+        │   ├── entity/
+        │   │   ├── User.java               # users table entity
+        │   │   ├── UserSession.java        # user_sessions table entity
+        │   │   └── PasswordRecoveryChallenge.java # OTP recovery challenges entity
+        │   ├── repository/                 # Spring Data JPA repositories
+        │   ├── security/
+        │   │   ├── SecurityConfig.java     # Spring Security filter chain & CORS
+        │   │   ├── JwtTokenProvider.java   # JWT parsing, signing, claim validation
+        │   │   ├── JwtAuthenticationFilter.java # Cookie/Bearer token extractor
+        │   │   └── UserPrincipal.java      # Spring Security UserDetails implementation
+        │   └── service/
+        │       ├── AuthService.java        # Registration, login, logout, password change
+        │       ├── PasswordRecoveryService.java # OTP challenge creation & validation
+        │       ├── PhoneValidationService.java  # libphonenumber E.164 normalization
+        │       ├── InMemoryRateLimiter.java     # Rate-limiting guard
+        │       └── LocalConsoleRecoveryCodeDelivery.java # Dev console OTP logger
+        └── resources/
+            ├── application.yml             # Spring Boot YAML configuration
+            └── db/migration/
+                └── V1__create_auth_schema.sql # Flyway baseline schema migration
 ```
 
-The frontend uses `VITE_API_BASE_URL=http://localhost:8080/api` from its environment or default. `npm run build` was run successfully after the frontend changes. Automated tests and Postman checks were not run.
+---
 
-### Backend
+## 5. Database Schema & Tables
 
-From PowerShell, set database credentials and generate a local Base64 key before running:
+The schema is managed strictly via **Flyway** (`V1__create_auth_schema.sql`). Hibernate is configured with `ddl-auto: validate`.
 
-```powershell
-Set-Location C:\E-Commerce\E-Commerce-Backend
-$env:SPRING_DATASOURCE_URL = 'jdbc:mysql://localhost:3306/ecommerce_auth?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true'
-$env:SPRING_DATASOURCE_USERNAME = 'ecommerce_app'
-$env:SPRING_DATASOURCE_PASSWORD = '<your local ecommerce_app password>'
-$env:SPRING_PROFILES_ACTIVE = 'local'
-$secretBytes = New-Object byte[] 32
-[System.Security.Cryptography.RandomNumberGenerator]::Fill($secretBytes)
-$env:JWT_SECRET = [Convert]::ToBase64String($secretBytes)
-$env:CORS_ALLOWED_ORIGINS = 'http://localhost:5173'
-$env:APP_COOKIE_SECURE = 'false'
-$env:APP_COOKIE_SAME_SITE = 'Lax'
-mvn spring-boot:run
+### 1. `users` Table
+Stores customer credentials and identities. Plaintext passwords are never stored.
+```sql
+CREATE TABLE users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    mobile_e164 VARCHAR(20) NOT NULL UNIQUE,
+    phone_region VARCHAR(10) NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    password_changed_at TIMESTAMP NULL,
+    INDEX idx_user_email (email),
+    INDEX idx_user_mobile (mobile_e164)
+);
 ```
 
-The backend has been compiled and started with the `local` profile. MySQL 8.0 accepted the connection and Flyway applied V1 successfully. The current process uses the separate local account noted above. Automated tests and Postman checks were not run.
+### 2. `user_sessions` Table
+Enables instantaneous server-side session tracking and revocation for JWTs.
+```sql
+CREATE TABLE user_sessions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    jti VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    revoked_at TIMESTAMP NULL,
+    CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_session_jti (jti),
+    INDEX idx_session_user (user_id)
+);
+```
 
-## Current status and remaining work
+### 3. `password_recovery_challenges` Table
+Tracks recovery OTP challenges, expiration windows, attempt counts, and single-use reset authorization tokens.
+```sql
+CREATE TABLE password_recovery_challenges (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    attempt_count INT DEFAULT 0,
+    consumed_at TIMESTAMP NULL,
+    delivery_channel VARCHAR(20) DEFAULT 'DEV_LOG',
+    recovery_token_hash VARCHAR(255) NULL,
+    recovery_expires_at TIMESTAMP NULL,
+    CONSTRAINT fk_recovery_challenges_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_recovery_user (user_id),
+    INDEX idx_recovery_expires (expires_at)
+);
+```
 
-- Core registration/login/logout/home code exists and the frontend now follows the backend cookie session flow. Frontend build and backend startup succeeded; authentication interactions remain unverified because no user account has been created.
-- OTP verification and reset frontend screens now call the backend in the correct sequence and keep recovery authorization in navigation state (not persistent storage). Local-only console delivery is implemented behind the explicit `local` Spring profile; an email/SMS provider remains out of scope for local demo.
-- Password change UI now sends confirmation; the backend revokes sessions and clears the current cookie, then the frontend clears its auth state.
-- Backend has an in-memory login/recovery rate limiter, OTP resend cooldown, consumed-code check, and committed attempt counter after invalid OTP attempts. Backend compilation succeeded after the local delivery adapter was added.
-- Refresh-token support is absent and should remain deferred unless specifically needed; the current access-cookie flow has no refresh route.
-- Database migration and backend startup are verified. End-to-end auth behavior remains to be walked through manually. Automated tests and Postman are explicitly deferred.
-- Existing home page retains commerce-themed widgets outside current scope. They are not backed by commerce APIs and should not be expanded.
+---
 
-## Guidance for the next agent
+## 6. API Contract Reference
 
-1. Read this file plus the workspace `AGENTS.md`, `PROJECT_CONTEXT.md`, and `MASTER_IMPLEMENTATION_PLAN.md` before editing.
-2. Inspect both repositories and Git status; verify these notes against actual source.
-3. Preserve uncommitted work and do not reset, clean, overwrite, or push it.
-4. Do not create/drop/alter tables or run Flyway until the target DB/schema is known and approved. Do not read `.env` values.
-5. Keep work within authentication scope. Do not add products, cart, or payment features.
-6. Do not add or run automated tests or Postman tests unless the user changes that instruction.
-7. Update this document with actual changes and clearly label behavior that has not been verified.
+Base URL: `http://localhost:8080/api`
+
+| Method | Endpoint | Access | Summary |
+|---|---|---|---|
+| `POST` | `/reg` | Public | Registers a new account with validated full name, email, mobile number, and password. |
+| `POST` | `/login` | Public | Authenticates via email or international mobile number; creates session row and sets HttpOnly cookie. |
+| `POST` | `/logout` | Authenticated | Revokes current session row (`revoked_at = NOW()`) and deletes the access cookie. |
+| `POST` | `/forgot-password` | Public | Initiates OTP recovery; returns generic response to prevent account enumeration. |
+| `POST` | `/verify-otp` | Public | Verifies 6-digit OTP code, enforces attempt limits, consumes OTP, and issues short-lived recovery token. |
+| `POST` | `/reset-password` | Recovery Token | Validates recovery token, enforces password complexity, updates password hash, and revokes all active sessions. |
+| `PUT` | `/change-password` | Authenticated | Verifies current password, updates to new password, and revokes active sessions. |
+| `GET` | `/me` | Authenticated | Returns safe user profile data (`id`, `fullName`, `email`, `mobileE164`, `phoneRegion`). |
+| `GET` | `/home` | Authenticated | Returns `{"message": "Welcome to Home Page"}`. |
+| `GET` | `/csrf` | Public setup | Initializes the CSRF cookie used by the browser client. |
+
+Swagger UI is accessible at: `http://localhost:8080/swagger-ui.html`
+OpenAPI JSON Docs: `http://localhost:8080/v3/api-docs`
+
+---
+
+## 7. Authentication, Session & Security Implementation
+
+1. **Password Hashing**: BCrypt with work factor 12 (`new BCryptPasswordEncoder(12)`).
+2. **Token & Cookie Architecture**:
+   - Access token lifetime: 15 minutes (`JWT_ACCESS_EXPIRATION_MS: 900000`).
+   - Cookie properties: `HttpOnly=true`, `SameSite=Lax`, `Path=/`, `Secure=false` for local HTTP.
+   - Browser automatically includes cookies with requests via `apiClient` (`withCredentials: true`).
+3. **Session Revocation**:
+   - Every issued JWT carries a unique UUID `jti` claim.
+   - On every request, `JwtAuthenticationFilter` validates the signature, parses the `jti`, and queries `user_sessions`. If `revoked_at` is non-null or `expires_at` has passed, the request is immediately rejected (`401 Unauthorized`).
+   - Logging out marks the active `jti` as revoked.
+   - Changing or resetting passwords revokes **ALL** active sessions for that user ID.
+4. **Account Enumeration Protection**:
+   - `/api/forgot-password` always returns `200 OK` with: `"If an account exists, use the configured recovery delivery method to continue."`
+5. **Local Development OTP Delivery**:
+   - Under `SPRING_PROFILES_ACTIVE=local`, `LocalConsoleRecoveryCodeDelivery` prints the generated OTP to the backend console with a local-only warning. In production, this bean is inactive.
+6. **CSRF**: `GET /api/csrf` initializes the `XSRF-TOKEN` cookie; Axios sends it as `X-XSRF-TOKEN` on unsafe requests. Runtime browser verification is still required.
+
+---
+
+## 8. Local Setup & Startup Instructions (Windows)
+
+### Prerequisites Check
+- **Java**: Java 21+ (`C:\Program Files\Java\jdk-25.0.4.1\bin`)
+- **Node.js**: Node 20+ (`C:\Program Files\nodejs\node.exe`)
+- **MySQL Server 8.0**: Running on port `3306`
+
+### Step 1: Provision the MySQL Database
+After reviewing the server and obtaining approval for any required database/user creation, run an administrator-approved SQL script. Use a newly chosen local password and never store it in the repository. Example placeholders only:
+```sql
+CREATE DATABASE IF NOT EXISTS ecommerce_auth CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'ecommerce_app'@'localhost' IDENTIFIED BY '<choose-a-local-secret>';
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON ecommerce_auth.* TO 'ecommerce_app'@'localhost';
+
+FLUSH PRIVILEGES;
+```
+
+### Step 2: Start the Backend
+Open a PowerShell terminal and run:
+```powershell
+Set-Location "C:\Users\u\Downloads\E Commerce\E-Commerce-Backend"
+.\start-backend.ps1
+```
+*Flyway will automatically execute `V1__create_auth_schema.sql` on first boot.*
+
+### Step 3: Start the Frontend
+Open a second PowerShell terminal and run:
+```powershell
+Set-Location "C:\Users\u\Downloads\E Commerce\E-Commerce-Frontend"
+.\start-frontend.ps1
+```
+*Open `http://localhost:5173` in your browser.*
+
+---
+
+## 9. Known Decisions, Tradeoffs & Next Steps
+
+1. **Rate Limiting**: Currently implemented via an in-memory sliding window (`InMemoryRateLimiter`). Sufficient for local demonstration; multi-instance production will require Redis or API Gateway throttling.
+2. **CSRF Protection**: Spring Security uses a double-submit CSRF cookie/header for the browser client. The interaction needs browser/runtime verification before relying on it.
+3. **Commerce Functionality**: Product catalog, shopping cart, and payment processors are deliberately omitted in this milestone and should only be introduced in subsequent phases.
+
+## Verification log (2026-10-20)
+
+- Frontend production build: succeeded after route-level code splitting. The initial JavaScript bundle is about 417 kB; phone-input code is a separate 225 kB route chunk. Vite emitted no chunk-size warning.
+- Frontend lint: completed with 3 warnings (Fast Refresh warnings in the three context modules); no errors.
+- Backend package: `mvn -B -DskipTests package` succeeded and compiled 38 Java files after the main security changes. Automated test execution was skipped.
+- Automated tests: not created or run, per the user’s testing override.
+- Database TCP check: `localhost:3306` was unreachable. Database migration/startup and browser flows were not attempted. Final CORS default and Flyway baseline configuration adjustments were not followed by another backend package run.
+- Git status/branch state: not verified because Git is unavailable in this environment.
+
+## Guidance for future agents
+
+Read this document before editing; inspect both repositories, Git status, configuration, and code instead of relying on this summary alone. Preserve existing work and the frontend/backend separation. Do not duplicate completed routes or services. Update this document whenever implementation changes and clearly distinguish verified behavior from plans. Work only on the next requested features. Automated tests remain deferred unless the user explicitly requests them. Do not apply migrations or create/alter databases or accounts without inspecting the current state and receiving the required approval.
