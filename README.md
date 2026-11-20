@@ -1,4 +1,6 @@
-# E-Commerce Authentication Backend
+# E-Commerce-Backend
+
+## E-Commerce Authentication Backend
 
 Java/Spring Boot authentication API for the E-Commerce project. It uses MySQL, Flyway migrations, HttpOnly JWT cookies, server-side session revocation, CSRF protection, international phone validation, and local-only console OTP delivery.
 
