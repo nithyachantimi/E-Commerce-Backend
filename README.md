@@ -14,7 +14,7 @@ The repository does not contain database credentials. The startup script securel
 
 ## Start on Windows
 
-For a double-click startup, open `run-ecommerce.bat` in this backend folder. It checks that MySQL is available, starts the backend and frontend in separate PowerShell windows, waits for both services, then opens the login page at `http://127.0.0.1:5174/login`. Leave those service windows open while using the app; close them to stop the services. The launcher never stops an unrelated process if an E-Commerce port is occupied.
+For a double-click startup, open `run-ecommerce.bat` in this backend folder. It tries to start the existing `MySQL84` service if needed, then starts the backend and frontend in separate PowerShell windows, waits for both services, and opens the login page at `http://127.0.0.1:5174/login`. If Windows denies permission to start MySQL, start it from Windows Services and run the launcher again. Leave the backend and frontend windows open while using the app; close them to stop those services. The launcher never stops an unrelated process if an E-Commerce port is occupied.
 
 The first backend launch asks for the MySQL `ecommerce_app` password without displaying it. You can choose to remember it encrypted for your Windows account (it is stored outside the project under `%LOCALAPPDATA%\ECommerceAuth`). Remove `ecommerce-app-password.dpapi` from that folder if the database password changes or you no longer want it remembered. The launcher does not create or alter MySQL databases or accounts.
 

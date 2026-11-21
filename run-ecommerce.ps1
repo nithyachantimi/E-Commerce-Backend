@@ -89,11 +89,25 @@ Write-Host 'Starting E-Commerce authentication system...' -ForegroundColor Green
 Write-Host 'This launcher uses MySQL 3306, backend 8080 and E-Commerce frontend 5174.'
 
 try {
+    $mysqlService = Get-Service -Name 'MySQL84' -ErrorAction Stop
+    if ($mysqlService.Status -ne 'Running') {
+        Write-Host 'Starting the existing MySQL84 service...' -ForegroundColor Cyan
+        Start-Service -Name 'MySQL84' -ErrorAction Stop
+        $mysqlService = Get-Service -Name 'MySQL84'
+        $mysqlService.WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
+    }
+} catch {
+    Write-Host 'Could not inspect or start the existing MySQL84 service.' -ForegroundColor Red
+    Write-Host 'Start MySQL84 from Windows Services (you may need administrator access), then double-click this launcher again.' -ForegroundColor Yellow
+    exit 1
+}
+
+try {
     $db = [System.Net.Sockets.TcpClient]::new()
     $db.Connect('127.0.0.1', 3306)
     $db.Close()
 } catch {
-    Write-Host 'MySQL is not accepting connections on port 3306. Start the MySQL84 service, then double-click this file again.' -ForegroundColor Red
+    Write-Host 'MySQL84 is running, but port 3306 is not accepting connections. Check the MySQL service configuration, then try again.' -ForegroundColor Red
     exit 1
 }
 
